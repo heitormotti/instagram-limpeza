@@ -1,4 +1,6 @@
 """Limpeza dos seguindo do Instagram, em ritmo humano.
+  python limpeza.py rodar      -> modo principal: faz login se precisar e roda os lotes do dia
+                                  enquanto o PC estiver ligado (Ctrl+C para parar)
   python limpeza.py login      -> abre janela, você faz login (com 2FA); sessao fica no perfil
   python limpeza.py lote       -> 1 lote (cota do dia / 5), com pausas aleatorias
   python limpeza.py lote --n 3 -> teste com N unfollows
@@ -114,9 +116,33 @@ def lote(n=None):
         log(f"lote fim: {feitos} agora, {e['dias'][hoje]}/{cota} hoje, {e['total']} no total")
         ctx.close()
 
+def logado():
+    with sync_playwright() as p:
+        ctx = abrir(p, True)
+        ok = any(c["name"] == "sessionid" for c in ctx.cookies("https://www.instagram.com"))
+        ctx.close(); return ok
+
+def rodar():
+    if not logado():
+        print("Sem sessão salva. Vou abrir o navegador para você entrar na sua conta.")
+        login()
+    print("Rodando. Deixe esta janela aberta; Ctrl+C para parar.")
+    while not TRAVA.exists():
+        lote()
+        e = estado(); feitos = e["dias"].get(str(dt.date.today()), 0)
+        if feitos >= cota_dia(e):
+            amanha = dt.datetime.combine(dt.date.today() + dt.timedelta(days=1), dt.time(9))                      + dt.timedelta(minutes=random.randint(0, 60))
+            espera = (amanha - dt.datetime.now()).total_seconds()
+        else:
+            espera = random.uniform(2.5, 3.5) * 3600
+        log(f"próximo lote às {dt.datetime.now() + dt.timedelta(seconds=espera):%d/%m %H:%M}")
+        time.sleep(espera)
+    log("parado: BLOQUEADO.txt existe")
+
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("cmd", choices=["login", "lote", "status"]); ap.add_argument("--n", type=int)
+    ap = argparse.ArgumentParser(); ap.add_argument("cmd", choices=["rodar", "login", "lote", "status"]); ap.add_argument("--n", type=int)
     a = ap.parse_args()
-    if a.cmd == "login": login()
+    if a.cmd == "rodar": rodar()
+    elif a.cmd == "login": login()
     elif a.cmd == "lote": lote(a.n)
     else: print(json.dumps(estado(), indent=1), "| travado" if TRAVA.exists() else "")
