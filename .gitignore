@@ -1,0 +1,7 @@
+perfil-chrome/
+estado.json
+log.txt
+BLOQUEADO.txt
+__pycache__/
+*.pyc
+.env
